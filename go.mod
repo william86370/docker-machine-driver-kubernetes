@@ -1,4 +1,4 @@
-module william86370/docker-machine-driver-kubernetes
+module github.com/william86370/docker-machine-driver-kubernetes
 
 go 1.18
 
