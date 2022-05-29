@@ -19,8 +19,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	// "k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	// "k8s.io/client-go/rest"
 )
 
 // Driver contains kubernetes-specific data to implement [drivers.Driver]
@@ -175,7 +175,7 @@ func getWaitForIP(ctx context.Context, k8s kubernetes.Interface, namespace, name
 	return ip, nil
 }
 
-func getClient() (string, kubernetes.Interface, apply.Apply, error) {
+func (d *Driver) getClient() (string, kubernetes.Interface, apply.Apply, error) {
 	// loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	// loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	// ns, _, err := loader.Namespace()
@@ -188,11 +188,22 @@ func getClient() (string, kubernetes.Interface, apply.Apply, error) {
 	// }
 
 	// creates the in-cluster config
-	cfg, err := rest.InClusterConfig()
+	// cfg, err := rest.Config(Host:d.kubernetesApiURL, BearerToken:d.kubernetesToken)
+	// cfg, err := rest.InClusterConfig()
+	// if err != nil {
+	// 	return "", nil, nil, err
+	// }
+
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	ns, _, err := loader.Namespace()
 	if err != nil {
 		return "", nil, nil, err
 	}
-
+	cfg, err := loader.ClientConfig()
+	if err != nil {
+		return "", nil, nil, err
+	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return "", nil, nil, err
@@ -201,7 +212,7 @@ func getClient() (string, kubernetes.Interface, apply.Apply, error) {
 	if err != nil {
 		return "", nil, nil, err
 	}
-	return "default", client, apply.WithDynamicLookup(), err
+	return ns, client, apply.WithDynamicLookup(), err
 }
 
 
@@ -221,7 +232,7 @@ func (d *Driver) GetIP() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	defer cancel()
 
-	namespace, k8s, _, err := getClient()
+	namespace, k8s, _, err := d.getClient()
 	if err != nil {
 		return "", err
 	}
@@ -234,7 +245,7 @@ func (d *Driver) GetState() (state.State, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	defer cancel()
 
-	namespace, k8s, _, err := getClient()
+	namespace, k8s, _, err := d.getClient()
 	if err != nil {
 		return state.None, err
 	}
@@ -287,7 +298,7 @@ func (d *Driver) Start() error {
 		return err
 	}
 
-	namespace, k8s, apply, err := getClient()
+	namespace, k8s, apply, err := d.getClient()
 	if err != nil {
 		return err
 	}
@@ -402,7 +413,7 @@ func (d *Driver) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	defer cancel()
 
-	namespace, _, apply, err := getClient()
+	namespace, _, apply, err := d.getClient()
 	if err != nil {
 		return err
 	}

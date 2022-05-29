@@ -28,6 +28,7 @@ require (
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
@@ -38,6 +39,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rancher/lasso v0.0.0-20210616224652-fc3ebd901c08 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292 // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
