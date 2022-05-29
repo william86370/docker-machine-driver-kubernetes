@@ -19,7 +19,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	// "k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 )
 
 // Driver contains kubernetes-specific data to implement [drivers.Driver]
@@ -27,6 +28,8 @@ type Driver struct {
 	*drivers.BaseDriver
 	Userdata string
 	Image    string
+	kubernetesApiURL string
+	kubernetesToken string
 }
 
 const (
@@ -58,6 +61,18 @@ func (d *Driver) DriverName() string {
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
+			Name:   "pod-k8apiurl",
+			Usage:  "URL to kubernetes api",
+			EnvVar: "POD_K8AIURL",
+			Value:  "",
+		},
+		mcnflag.StringFlag{
+			Name:   "pod-k8token",
+			Usage:  "The Kubeconfig Token",
+			EnvVar: "POD_K8TOKEN",
+			Value:  "",
+		},
+		mcnflag.StringFlag{
 			Name:   "pod-userdata",
 			Usage:  "A user-data file to be passed to cloud-init",
 			EnvVar: "POD_USERDATA",
@@ -76,6 +91,8 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.Userdata = flags.String("pod-userdata")
 	d.Image = flags.String("pod-image")
+	d.kubernetesApiURL = flags.String("pod-k8apiurl")
+	d.kubernetesToken = flags.String("pod-k8token")
 	d.SetSwarmConfigFromFlags(flags)
 
 	if d.Image == "" {
@@ -159,16 +176,23 @@ func getWaitForIP(ctx context.Context, k8s kubernetes.Interface, namespace, name
 }
 
 func getClient() (string, kubernetes.Interface, apply.Apply, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	ns, _, err := loader.Namespace()
+	// loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	// loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	// ns, _, err := loader.Namespace()
+	// if err != nil {
+	// 	return "", nil, nil, err
+	// }
+	// cfg, err := loader.ClientConfig()
+	// if err != nil {
+	// 	return "", nil, nil, err
+	// }
+
+	// creates the in-cluster config
+	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return "", nil, nil, err
 	}
-	cfg, err := loader.ClientConfig()
-	if err != nil {
-		return "", nil, nil, err
-	}
+
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return "", nil, nil, err
@@ -177,7 +201,7 @@ func getClient() (string, kubernetes.Interface, apply.Apply, error) {
 	if err != nil {
 		return "", nil, nil, err
 	}
-	return ns, client, apply.WithDynamicLookup(), err
+	return "default", client, apply.WithDynamicLookup(), err
 }
 
 
