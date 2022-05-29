@@ -15,5 +15,5 @@ func main() {
 		fmt.Printf("Version: %s\n", "1.0.0")
 		os.Exit(0)
 	}
-	plugin.RegisterDriver(NewDriver())
+	plugin.RegisterDriver(NewDriver("",""))
 }
