@@ -1,0 +1,1 @@
+go build -o docker-machine-driver-kubernetes

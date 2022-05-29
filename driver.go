@@ -6,20 +6,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
+	"strings"
 	"time"
 
-	"github.com/rancher/machine/libmachine/drivers"
-	"github.com/rancher/machine/libmachine/log"
-	"github.com/rancher/machine/libmachine/mcnflag"
-	"github.com/rancher/machine/libmachine/ssh"
-	"github.com/rancher/machine/libmachine/state"
-	"github.com/rancher/wrangler/pkg/apply"
-	"github.com/rancher/wrangler/pkg/objectset"
+	"github.com/docker/machine/libmachine/drivers"
+	"github.com/docker/machine/libmachine/log"
+	"github.com/docker/machine/libmachine/mcnflag"
+	"github.com/docker/machine/libmachine/mcnutils"
+	mcnssh "github.com/docker/machine/libmachine/ssh"
+	"github.com/docker/machine/libmachine/state"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh"
 )
 
 // Driver contains kubernetes-specific data to implement [drivers.Driver]
@@ -73,10 +76,10 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 
 
 // SetConfigFromFlags initializes the driver based on the command line flags.
-func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	d.Userdata = flags.String("pod-userdata")
-	d.Image = flags.String("pod-image")
-	d.SetSwarmConfigFromFlags(flags)
+func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
+	d.Userdata = opts.String("pod-userdata")
+	d.Image = opts.String("pod-image")
+	d.SetSwarmConfigFromFlags(opts)
 
 	if d.Image == "" {
 		d.Image = defaultImage
