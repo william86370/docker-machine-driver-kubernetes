@@ -7,11 +7,13 @@ import (
 	"io/ioutil"
 	"net"
 	"time"
+	"encoding/base64"
+    "os"
 
 	"github.com/docker/machine/libmachine/drivers"
-	"github.com/rancher/machine/libmachine/log"
+	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
-	"github.com/rancher/machine/libmachine/ssh"
+	"github.com/docker/machine/libmachine/ssh"
 	"github.com/docker/machine/libmachine/state"
 	"github.com/rancher/wrangler/pkg/apply"
 	"github.com/rancher/wrangler/pkg/objectset"
@@ -33,11 +35,33 @@ type Driver struct {
 }
 
 const (
-	defaultUser  = "pod-user"
+	defaultUser  = "sles"
 	defaultImage = "ghcr.io/william86370/rke2ink:systemd"
 	defaultPort = 22
 )
 
+func base64decodefile(b64 string) error {
+
+	dec, err := base64.StdEncoding.DecodeString(b64)
+    if err != nil {
+        return fmt.Errorf("Cannot Decode base64 file %v", err)
+    }
+
+    f, err := os.Create("/.kube/config")
+	os.Setenv("KUBECONFIG", "/.kube/config")
+    if err != nil {
+        return fmt.Errorf("cannot create file %v", err)
+    }
+    defer f.Close()
+
+    if _, err := f.Write(dec); err != nil {
+        panic(err)
+    }
+    if err := f.Sync(); err != nil {
+        panic(err)
+    }
+	return nil
+}
 
 // NewDriver creates a Driver with the specified storePath.
 func NewDriver(machineName string, storePath string) *Driver {
@@ -193,7 +217,7 @@ func (d *Driver) getClient() (string, kubernetes.Interface, apply.Apply, error) 
 	// if err != nil {
 	// 	return "", nil, nil, err
 	// }
-
+	base64decodefile(d.kubernetesToken)
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	ns, _, err := loader.Namespace()

@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/docker/machine v0.16.2
-	github.com/rancher/machine v0.13.0
 	github.com/rancher/wrangler v1.0.0
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
