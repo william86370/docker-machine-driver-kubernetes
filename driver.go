@@ -30,14 +30,12 @@ type Driver struct {
 	*drivers.BaseDriver
 	Userdata string
 	Image    string
-	kubernetesApiURL string
 	kubernetesToken string
 }
 
 const (
 	defaultUser  = "sles"
 	defaultImage = "ghcr.io/william86370/rke2ink:systemd"
-	defaultPort = 22
 )
 
 func base64decodefile(b64 string) error {
@@ -77,7 +75,7 @@ func NewDriver(machineName string, storePath string) *Driver {
 
 // DriverName returns the name of the driver
 func (d *Driver) DriverName() string {
-	return "pod"
+	return "kubernetes"
 }
 
 // GetCreateFlags registers the flags this driver adds to
@@ -85,27 +83,21 @@ func (d *Driver) DriverName() string {
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
-			Name:   "pod-k8apiurl",
-			Usage:  "URL to kubernetes api",
-			EnvVar: "POD_K8AIURL",
+			Name:   "kubernetes-k8token",
+			Usage:  "The Kubeconfig Token b64 encoded",
+			EnvVar: "KUBERNETES_K8TOKEN",
 			Value:  "",
 		},
 		mcnflag.StringFlag{
-			Name:   "pod-k8token",
-			Usage:  "The Kubeconfig Token",
-			EnvVar: "POD_K8TOKEN",
-			Value:  "",
-		},
-		mcnflag.StringFlag{
-			Name:   "pod-userdata",
+			Name:   "kubernetes-userdata",
 			Usage:  "A user-data file to be passed to cloud-init",
-			EnvVar: "POD_USERDATA",
+			EnvVar: "KUBERNETES_USERDATA",
 			Value:  "",
 		},
 		mcnflag.StringFlag{
-			Name:   "pod-image",
-			Usage:  "Pod image to run",
-			EnvVar: "POD_IMAGE",
+			Name:   "kubernetes-image",
+			Usage:  "kubernetes image to run",
+			EnvVar: "KUBERNETES_IMAGE",
 			Value:  "",
 		},
 	}
@@ -113,10 +105,9 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 
 // SetConfigFromFlags initializes the driver based on the command line flags.
 func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	d.Userdata = flags.String("pod-userdata")
-	d.Image = flags.String("pod-image")
-	d.kubernetesApiURL = flags.String("pod-k8apiurl")
-	d.kubernetesToken = flags.String("pod-k8token")
+	d.Userdata = flags.String("kubernetes-userdata")
+	d.Image = flags.String("kubernetes-image")
+	d.kubernetesToken = flags.String("kubernetes-k8token")
 	d.SetSwarmConfigFromFlags(flags)
 
 	if d.Image == "" {
@@ -200,23 +191,7 @@ func getWaitForIP(ctx context.Context, k8s kubernetes.Interface, namespace, name
 }
 
 func (d *Driver) getClient() (string, kubernetes.Interface, apply.Apply, error) {
-	// loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	// loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	// ns, _, err := loader.Namespace()
-	// if err != nil {
-	// 	return "", nil, nil, err
-	// }
-	// cfg, err := loader.ClientConfig()
-	// if err != nil {
-	// 	return "", nil, nil, err
-	// }
 
-	// creates the in-cluster config
-	// cfg, err := rest.Config(Host:d.kubernetesApiURL, BearerToken:d.kubernetesToken)
-	// cfg, err := rest.InClusterConfig()
-	// if err != nil {
-	// 	return "", nil, nil, err
-	// }
 	base64decodefile(d.kubernetesToken)
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
@@ -289,6 +264,7 @@ func (d *Driver) GetState() (state.State, error) {
 	default:
 		return state.Stopped, nil
 	}
+	return state.None, nil
 }
 
 // Start starts an existing pod instance or create an instance with an existing disk.
