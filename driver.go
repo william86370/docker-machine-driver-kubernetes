@@ -9,7 +9,7 @@ import (
 	"time"
 	"encoding/base64"
     "os"
-
+	"k8s.io/apimachinery/pkg/api/resource"
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
@@ -46,7 +46,7 @@ func base64decodefile(b64 string) error {
     }
 
     f, err := os.Create("/.kube/config")
-	os.Setenv("KUBECONFIG", "/.kube/config")
+	// os.Setenv("KUBECONFIG", "/.kube/config")
     if err != nil {
         return fmt.Errorf("cannot create file %v", err)
     }
@@ -75,7 +75,7 @@ func NewDriver(machineName string, storePath string) *Driver {
 
 // DriverName returns the name of the driver
 func (d *Driver) DriverName() string {
-	return "kubernetes"
+	return "cloudca"
 }
 
 // GetCreateFlags registers the flags this driver adds to
@@ -83,19 +83,19 @@ func (d *Driver) DriverName() string {
 func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 	return []mcnflag.Flag{
 		mcnflag.StringFlag{
-			Name:   "kubernetes-k8token",
+			Name:   "cloudca-k8token",
 			Usage:  "The Kubeconfig Token b64 encoded",
 			EnvVar: "KUBERNETES_K8TOKEN",
 			Value:  "",
 		},
 		mcnflag.StringFlag{
-			Name:   "kubernetes-userdata",
+			Name:   "cloudca-userdata",
 			Usage:  "A user-data file to be passed to cloud-init",
 			EnvVar: "KUBERNETES_USERDATA",
 			Value:  "",
 		},
 		mcnflag.StringFlag{
-			Name:   "kubernetes-image",
+			Name:   "cloudca-image",
 			Usage:  "kubernetes image to run",
 			EnvVar: "KUBERNETES_IMAGE",
 			Value:  "",
@@ -105,9 +105,9 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 
 // SetConfigFromFlags initializes the driver based on the command line flags.
 func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
-	d.Userdata = flags.String("kubernetes-userdata")
-	d.Image = flags.String("kubernetes-image")
-	d.kubernetesToken = flags.String("kubernetes-k8token")
+	d.Userdata = flags.String("cloudca-userdata")
+	d.Image = flags.String("cloudca-image")
+	d.kubernetesToken = flags.String("cloudca-k8token")
 	d.SetSwarmConfigFromFlags(flags)
 
 	if d.Image == "" {
@@ -191,8 +191,12 @@ func getWaitForIP(ctx context.Context, k8s kubernetes.Interface, namespace, name
 }
 
 func (d *Driver) getClient() (string, kubernetes.Interface, apply.Apply, error) {
-
+	// kubeconfigloc := "/.kube/config"
 	base64decodefile(d.kubernetesToken)
+	// kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigloc)
+    // if err != nil {
+    //     return "",nil,nil, fmt.Errorf("error loading kubernetes configuration: %w", err)
+    // }
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	ns, _, err := loader.Namespace()
@@ -346,6 +350,15 @@ func podAndSecret(namespace, name, image string, userData, metaData []byte) (*co
 			Spec: corev1.PodSpec{
 				Volumes: []corev1.Volume{
 					{
+						//make volume using default storage class
+						Name: "cache-volume",
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "k8-core",
+							},
+						},
+					},
+					{
 						Name: "data",
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
@@ -357,7 +370,33 @@ func podAndSecret(namespace, name, image string, userData, metaData []byte) (*co
 				Containers: []corev1.Container{{
 					Name:  "machine",
 					Image: image,
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 22,
+							Name:          "ssh",
+						},
+						{
+							ContainerPort: 6443,
+							Name:          "kube-api",
+						},
+						{
+							ContainerPort: 9435,
+							Name:          "endpoint",
+						},
+						{
+							ContainerPort: 443,
+							Name:          "https",
+						},
+						{
+							ContainerPort: 80,
+							Name:          "http",
+						},
+					},
 					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "cache-volume",
+							MountPath: "/var/lib/rancher",
+						},
 						{
 							Name:      "data",
 							MountPath: "/var/lib/cloud/seed/nocloud/meta-data",
@@ -367,6 +406,12 @@ func podAndSecret(namespace, name, image string, userData, metaData []byte) (*co
 							Name:      "data",
 							MountPath: "/var/lib/cloud/seed/nocloud/user-data",
 							SubPath:   "user-data",
+						},
+					},
+					// Give the pod 2GB ram and cpu limit
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{
